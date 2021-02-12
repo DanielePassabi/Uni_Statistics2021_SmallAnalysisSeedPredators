@@ -20,7 +20,7 @@ predation from Duncan and Duncan (2000) that quantify how many times seeds
 of two different species disappeared (presumably taken by seed predators) from
 observation stations in Kibale National Park, Uganda. The two species 
 (actually the smallest- and largest-seeded species of a set of eight species) are
-*Polyscias fulva* (`pol`: seed mass < 0.01 g) and Pseudospondias microcarpa (`psd`:
+*Polyscias fulva* (`pol`: seed mass < 0.01 g) and *Pseudospondias microcarpa* (`psd`:
 seed mass 50 g).
 
 The main questions to address are: does the probability of seed removal vary
@@ -45,9 +45,14 @@ that you develop your own code.
 
 ```{r message=FALSE, warning=FALSE}
 
-library(emdbook) # dataset library
-library(DT)      # nicer print of dataframes
+library(emdbook)    # dataset library
+library(DT)         # nicer display of dataframes
 library(tidyverse)
+library(ggplot2)    # plotting graphs
+library(hrbrthemes) # theme for plotting
+library(cowplot)    # useful for plots side by side
+
+Sys.setlocale("LC_ALL", "English") # we want the plots to be in English
 
 ```
 
@@ -57,23 +62,216 @@ library(tidyverse)
 
 df = SeedPred
 
-# exploration of initial dataframe
-datatable(df)
+```
+
+
+- `station` a factor specifying the station number
+- `species` a factor with levels `abz`, `cd`, `cor`, `dio`, `mmu`, `pol`, `psd`, `uva`
+- `date` sample date
+- `seeds` number of seeds present
+- `tcum` cumulative time elapsed
+- `tint` time since last sample
+- `taken` seeds removed since last sample
+- `dist` distance from forest edge (m)
+- `available` how many seeds were available at each time and station to be predated
+
+```{r}
 
 # what are the types of the columns?
 glimpse(df)
+
+# exploration of initial dataframe
+datatable(df)
+
+```
+
+### Cleaning of the dataset
+We keep only the information about the two species we are interested in: `pol` and `psd`.
+
+Furthermore, as is made explicit by the text of the delivery, the rows with 
+`available=0` do not provide any information, so we remove them (as we do with NAs).
+
+```{r}
+
+df = df[df$species == "pol" | df$species == "psd",] # keep the two species
+df = df[df$available != 0 & !is.na(df$available),]  # remove rows where available = 0 or NA
+df_clean = df[!is.na(df$seeds),]                    # remove rows where seeds is NA
+
+datatable(df_clean)
+
+```
+
+A simple plot of the data, for one station.
+
+```{r message=FALSE, warning=FALSE, fig.align = 'center'}
+
+example_station = 19
+example_distance = 25
+
+df_stat_65 = df_clean[df_clean$station == example_station & df_clean$dist == example_distance,]
+
+df_stat_65 %>%
+  ggplot( aes(x=date, y=seeds)) +
+    geom_line(color="grey") +
+    geom_point(shape=21, color="black", fill="#69b3a2", size=6) +
+    theme_ipsum() +
+    labs(title = "Seeds predation through time",
+         subtitle = "Station: 19\nSpecies: Polyscias fulva (pol)\nDistance: 25m",
+         x = "Date", y = "Seeds")
+
+```
+
+Now we generalize this plot.
+
+```{r message=FALSE, warning=FALSE}
+
+# CASE 1: pol, 10
+df_pol_10 = df_clean[df_clean$species == "pol" & df_clean$dist == 10,]
+
+# count how many measuraments there are for each months
+df_temp_1 = df_pol_10 %>%
+  count(date)
+
+# count the total number of seeds for each month
+df_temp_2 = df_pol_10 %>%
+  group_by(date) %>%
+  summarise(total_seeds = sum(seeds))
+
+df_temp_2$n = df_temp_1$n
+df_temp_2$mean_seeds = df_temp_2$total_seeds / df_temp_2$n
+
+df_pol_10 = df_temp_2
+
+###
+
+# CASE 2: pol, 25
+df_pol_25 = df_clean[df_clean$species == "pol" & df_clean$dist == 25,]
+
+# count how many measuraments there are for each months
+df_temp_1 = df_pol_25 %>%
+  count(date)
+
+# count the total number of seeds for each month
+df_temp_2 = df_pol_25 %>%
+  group_by(date) %>%
+  summarise(total_seeds = sum(seeds))
+
+df_temp_2$n = df_temp_1$n
+df_temp_2$mean_seeds = df_temp_2$total_seeds / df_temp_2$n
+
+df_pol_25 = df_temp_2
+
+###
+
+# CASE 3: psd, 10
+df_psd_10 = df_clean[df_clean$species == "psd" & df_clean$dist == 10,]
+
+# count how many measuraments there are for each months
+df_temp_1 = df_psd_10 %>%
+  count(date)
+
+# count the total number of seeds for each month
+df_temp_2 = df_psd_10 %>%
+  group_by(date) %>%
+  summarise(total_seeds = sum(seeds))
+
+df_temp_2$n = df_temp_1$n
+df_temp_2$mean_seeds = df_temp_2$total_seeds / df_temp_2$n
+
+df_psd_10 = df_temp_2
+
+###
+
+# CASE 4: pol, 25
+df_psd_25 = df_clean[df_clean$species == "psd" & df_clean$dist == 25,]
+
+# count how many measuraments there are for each months
+df_temp_1 = df_psd_25 %>%
+  count(date)
+
+# count the total number of seeds for each month
+df_temp_2 = df_psd_25 %>%
+  group_by(date) %>%
+  summarise(total_seeds = sum(seeds))
+
+df_temp_2$n = df_temp_1$n
+df_temp_2$mean_seeds = df_temp_2$total_seeds / df_temp_2$n
+
+df_psd_25 = df_temp_2
+
+```
+
+
+```{r message=FALSE, warning=FALSE, fig.align = 'center'}
+
+# Now we plot
+
+pol1 = df_pol_10 %>%
+  ggplot( aes(x=date, y=mean_seeds)) +
+    geom_line(color="grey") +
+    geom_point(shape=21, color="black", fill="#DEF6CA", size=2.5) +
+    ylim(0, 5) +
+    theme_ipsum() +
+    labs(title = "Mean seeds available through time",
+         subtitle = "Species: Polyscias fulva\nDistance: 10m",
+         x = "Date", y = "Seeds")
+
+pol2 = df_pol_25 %>%
+  ggplot( aes(x=date, y=mean_seeds)) +
+    geom_line(color="grey") +
+    geom_point(shape=21, color="black", fill="#DEF6CA", size=2.5) +
+    ylim(0, 5) +
+    theme_ipsum() +
+    labs(title = "",
+         subtitle = "Species: Polyscias fulva\nDistance: 25m",
+         x = "Date", y = "Seeds")
+
+psd1 = df_psd_10 %>%
+  ggplot( aes(x=date, y=mean_seeds)) +
+    geom_line(color="grey") +
+    geom_point(shape=21, color="black", fill="#F497DA", size=2.5) +
+    ylim(0, 5) +
+    theme_ipsum() +
+    labs(title = "Mean seeds available through time",
+         subtitle = "Species: Pseudospondias microcarpa\nDistance: 10m",
+         x = "Date", y = "Seeds")
+
+psd2 = df_psd_25 %>%
+  ggplot( aes(x=date, y=mean_seeds)) +
+    geom_line(color="grey") +
+    geom_point(shape=21, color="black", fill="#F497DA", size=2.5) +
+    ylim(0, 5) +
+    theme_ipsum() +
+    labs(title = "",
+         subtitle = "Species: Pseudospondias microcarpa\nDistance: 25m",
+         x = "Date", y = "Seeds")
+
+plot_grid(pol1, pol2, labels = "", ncol = 2)
+plot_grid(psd1, psd2, labels = "", ncol = 2)
+
+```
+
+### Question 1
+#### Can the *distribution of seeds removed* be fitted with the *binomial distribution*?
+
+```{r}
+
+# find the empirical data
+
+# new rows based on `taken`
+df_clean$seeds_rem = ifelse(df_clean$taken == 0, FALSE, TRUE)
+
+# datatable(df_clean)
+summary(df_clean$seeds_rem)
 
 ```
 
 ```{r}
 
+n = 890 + 97
+p = 97/n
 
+message("Total occurrences: ", n, "\nProbability of seeds removal: ", round(p,4))
 
 ```
-
-
-
-
-
-
 

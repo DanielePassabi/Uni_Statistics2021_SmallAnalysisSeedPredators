@@ -1,0 +1,79 @@
+---
+title: "Analysis on SeedPred dataset"
+output:
+  html_document:
+    df_print: paged
+---
+
+<style>
+  body {text-align: justify}
+</style>
+
+### Passabì Daniele
+
+---
+
+## Assignment
+
+Analyse the dataset *SeedPred* contained in the package `emdbook`, data on seed
+predation from Duncan and Duncan (2000) that quantify how many times seeds
+of two different species disappeared (presumably taken by seed predators) from
+observation stations in Kibale National Park, Uganda. The two species 
+(actually the smallest- and largest-seeded species of a set of eight species) are
+*Polyscias fulva* (`pol`: seed mass < 0.01 g) and Pseudospondias microcarpa (`psd`:
+seed mass 50 g).
+
+The main questions to address are: does the probability of seed removal vary
+as a function of distance from the forest edge (10 or 25 m)? Does it depend on
+species, possibly as a function of seed mass? On time?
+
+It must be remembered that the numbers of seeds present in each location is
+small: 5 initially, then fewer as some are predated. The variable `available` 
+indicates how many seeds were available at each time and station to be predated;
+of course, the observations with `available=0` do not give any information.
+Hence, the first question to address is the distribution of seeds removed; can it
+be fitted with the binomial distribution?
+
+The book by Bolker gives many ideas about the analysis, but of course I expect
+that you develop your own code.
+
+---
+
+## Analysis
+
+### Libraries
+
+```{r message=FALSE, warning=FALSE}
+
+library(emdbook) # dataset library
+library(DT)      # nicer print of dataframes
+library(tidyverse)
+
+```
+
+### A glance at the dataset
+
+```{r}
+
+df = SeedPred
+
+# exploration of initial dataframe
+datatable(df)
+
+# what are the types of the columns?
+glimpse(df)
+
+```
+
+```{r}
+
+
+
+```
+
+
+
+
+
+
+

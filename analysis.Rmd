@@ -41,7 +41,7 @@ that you develop your own code.
 
 ## Analysis
 
-### Libraries
+### Libraries and setup
 
 ```{r message=FALSE, warning=FALSE}
 
@@ -52,11 +52,16 @@ library(ggplot2)    # plotting graphs
 library(hrbrthemes) # theme for plotting
 library(cowplot)    # useful for plots side by side
 
+general_col = "#BAD7F2"
+pol_col = "#F2BAC9"
+psd_col = "#F2E2BA"
+
 Sys.setlocale("LC_ALL", "English") # we want the plots to be in English
 
 ```
 
 ### A glance at the dataset
+A little exploratory analysis to understand what kind of dataset we are dealing with.
 
 ```{r}
 
@@ -113,7 +118,7 @@ df_stat_65 = df_clean[df_clean$station == example_station & df_clean$dist == exa
 df_stat_65 %>%
   ggplot( aes(x=date, y=seeds)) +
     geom_line(color="grey") +
-    geom_point(shape=21, color="black", fill="#69b3a2", size=6) +
+    geom_point(shape=21, color="black", fill=pol_col, size=6) +
     theme_ipsum() +
     labs(title = "Seeds predation through time",
          subtitle = "Station: 19\nSpecies: Polyscias fulva (pol)\nDistance: 25m",
@@ -209,7 +214,7 @@ df_psd_25 = df_temp_2
 pol1 = df_pol_10 %>%
   ggplot( aes(x=date, y=mean_seeds)) +
     geom_line(color="grey") +
-    geom_point(shape=21, color="black", fill="#DEF6CA", size=2.5) +
+    geom_point(shape=21, color="black", fill=pol_col, size=2.5) +
     ylim(0, 5) +
     theme_ipsum() +
     labs(title = "Mean seeds available through time",
@@ -219,7 +224,7 @@ pol1 = df_pol_10 %>%
 pol2 = df_pol_25 %>%
   ggplot( aes(x=date, y=mean_seeds)) +
     geom_line(color="grey") +
-    geom_point(shape=21, color="black", fill="#DEF6CA", size=2.5) +
+    geom_point(shape=21, color="black", fill=pol_col, size=2.5) +
     ylim(0, 5) +
     theme_ipsum() +
     labs(title = "",
@@ -229,7 +234,7 @@ pol2 = df_pol_25 %>%
 psd1 = df_psd_10 %>%
   ggplot( aes(x=date, y=mean_seeds)) +
     geom_line(color="grey") +
-    geom_point(shape=21, color="black", fill="#F497DA", size=2.5) +
+    geom_point(shape=21, color="black", fill=psd_col, size=2.5) +
     ylim(0, 5) +
     theme_ipsum() +
     labs(title = "Mean seeds available through time",
@@ -239,7 +244,7 @@ psd1 = df_psd_10 %>%
 psd2 = df_psd_25 %>%
   ggplot( aes(x=date, y=mean_seeds)) +
     geom_line(color="grey") +
-    geom_point(shape=21, color="black", fill="#F497DA", size=2.5) +
+    geom_point(shape=21, color="black", fill=psd_col, size=2.5) +
     ylim(0, 5) +
     theme_ipsum() +
     labs(title = "",
@@ -251,27 +256,239 @@ plot_grid(psd1, psd2, labels = "", ncol = 2)
 
 ```
 
-### Question 1
-#### Can the *distribution of seeds removed* be fitted with the *binomial distribution*?
+### Can the *distribution of seeds removed* be fitted with the *binomial distribution*?
+
+We can interpret in 2 ways our data.
+
+**Case A**
+
+For each `date` *d*, the `available` seeds can either be predated or not 
+(we do not consider each individual seed).
+
+So, we create a new column, `seeds_rem`, which is a boolean column where:
+
+- `TRUE` indicates that any number of seeds were predated (based on `taken` column)
+- `FALSE` indicates that no seeds were predated
 
 ```{r}
 
-# find the empirical data
-
-# new rows based on `taken`
 df_clean$seeds_rem = ifelse(df_clean$taken == 0, FALSE, TRUE)
 
-# datatable(df_clean)
+datatable(df_clean)
 summary(df_clean$seeds_rem)
 
 ```
 
 ```{r}
 
+# based on summary we know that
+successes = 97
 n = 890 + 97
-p = 97/n
+emp_prob = successes/n
 
-message("Total occurrences: ", n, "\nProbability of seeds removal: ", round(p,4))
+message("Number of trials: ", n, "\nProbability of seeds removal: ", round(emp_prob,4))
 
 ```
+
+```{r message=FALSE, warning=FALSE, fig.align = 'center'}
+
+x1 = 0:n
+df = data.frame(x = x1, y = dbinom(x1, n, emp_prob))
+
+plot_full = ggplot(df, aes(x = x, y = y)) + 
+  geom_bar(stat = "identity", col = general_col, fill = general_col) +
+  xlab("Number of successes") + 
+  ylab("Density") +
+  ylim(0,0.05) +
+  labs(title = "Binomial distribution",
+       subtitle = "n=987\np=0.0983") + 
+  theme_ipsum() 
+
+plot_zoom = ggplot(df, aes(x = x, y = y)) + 
+  geom_bar(stat = "identity", col = general_col, fill = general_col) +
+  xlab("Number of successes") + 
+  xlim(50,150) +
+  ylab("Density") +
+  ylim(0,0.05) +
+  labs(title = "Binomial distribution",
+       subtitle = "n=987\np=0.0983") + 
+  theme_ipsum() 
+
+plot_full
+plot_zoom
+
+```
+
+**Case B**
+
+We consider each seed individually, so the focus lies on the columns `taken` and `available`.
+
+```{r}
+
+successes = sum(df_clean$taken)
+n = sum(df_clean$available)
+emp_prob = successes/n
+
+message("Number of trials: ", n, "\nNumber of successes: ", successes, "\nProbability of seeds removal: ", round(emp_prob,4))
+
+```
+
+```{r message=FALSE, warning=FALSE, fig.align = 'center'}
+
+x1 = 0:n
+df = data.frame(x = x1, y = dbinom(x1, n, emp_prob))
+
+plot_full = ggplot(df, aes(x = x, y = y)) + 
+  geom_bar(stat = "identity", col = general_col, fill = general_col) +
+  xlab("Number of successes") + 
+  ylab("Density") +
+  ylim(0,0.03) +
+  labs(title = "Binomial distribution",
+       subtitle = "Focus on each individual seed\n\nn=3620\np=0.0685") + 
+  theme_ipsum() 
+
+plot_zoom = ggplot(df, aes(x = x, y = y)) + 
+  geom_bar(stat = "identity", col = general_col, fill = general_col) +
+  xlab("Number of successes") + 
+  xlim(150,350) +
+  ylab("Density") +
+  ylim(0,0.03) +
+  labs(title = "Binomial distribution",
+       subtitle = "Focus on each individual seed\n\nn=3620\np=0.0685") + 
+  theme_ipsum() 
+
+plot_full
+plot_zoom
+
+```
+
+
+
+### Linear models
+#### Does the probability of seed removal vary as a function of distance from the forest edge (10 or 25 m)? 
+#### Does it depend on species, possibly as a function of seed mass? On time?
+
+```{r}
+
+# Create the column with the probability of seed removal [p_seed_rem]
+
+df_clean$p_seed_rem = df_clean$taken / df_clean$available
+
+datatable(df_clean)
+
+```
+
+---
+
+#### Distance
+
+```{r}
+
+# DISTANCE - is it significant?
+
+model_dist = lm(p_seed_rem~dist, data=df_clean)
+summary(model_dist)
+
+```
+
+From the result we can see how the **distance** is not that significant. 
+There is *no substantial difference* between the reference value (10 meters) and 25m.
+
+---
+
+#### Species
+
+```{r}
+
+# SPECIES - is it significant?
+
+model_species = lm(p_seed_rem~species, data=df_clean)
+summary(model_species)
+
+```
+
+The p-value is extremely low, so we can say with a high degree of confidence 
+that the variable **species** is relevant.
+
+This result confirms what we hypothesized in the exploratory analysis.
+
+We can get more useful information through the use of the *residuals plot*.
+
+```{r}
+
+plot(model_species)
+
+```
+
+It is not necessary to analyze the graphs in detail to understand that the model 
+is not extremely accurate. 
+
+In the first and in the third graph we immediately notice how the data is not homogeneous.
+In the second one it is obvious that a normal distribution is not followed. 
+The fourth does not detect the presence of outliers.
+
+---
+
+#### Time
+Is it significant?
+We use the variable tcum.
+
+```{r}
+
+model_time = lm(p_seed_rem~tcum, data=df_clean)
+summary(model_time)
+plot(model_time)
+
+```
+
+The graphs seem to be a little bit nicer, but we can achieve better results. 
+
+---
+
+#### Experiments with Models 
+
+```{r}
+
+# Let's try to fit a model with all the variables that make sense
+
+model_1 = lm(p_seed_rem~dist+species+tcum, data=df_clean)
+summary(model_1)
+
+```
+
+As before, the distance is not significant, so we remove it.
+
+```{r}
+
+model_2 = lm(p_seed_rem~species+tcum, data=df_clean)
+summary(model_2)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

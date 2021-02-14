@@ -53,8 +53,12 @@ library(hrbrthemes) # theme for plotting
 library(cowplot)    # useful for plots side by side
 
 general_col = "#BAD7F2"
+secondary_col = "#247BA0"
 pol_col = "#F2BAC9"
 psd_col = "#F2E2BA"
+
+significant_col = "#70AE6E"
+not_significant_col = "#F4743B"
 
 Sys.setlocale("LC_ALL", "English") # we want the plots to be in English
 
@@ -86,7 +90,7 @@ df = SeedPred
 glimpse(df)
 
 # exploration of initial dataframe
-datatable(df)
+datatable(df, rownames = FALSE)
 
 ```
 
@@ -102,7 +106,32 @@ df = df[df$species == "pol" | df$species == "psd",] # keep the two species
 df = df[df$available != 0 & !is.na(df$available),]  # remove rows where available = 0 or NA
 df_clean = df[!is.na(df$seeds),]                    # remove rows where seeds is NA
 
-datatable(df_clean)
+datatable(df_clean, rownames = FALSE)
+
+```
+
+How many entries for each species and distance?
+
+```{r message=FALSE, warning=FALSE, fig.align = 'center'}
+
+# Find the frequencies of the species
+df_freqs = df_clean %>%  
+  group_by(species, dist) %>% 
+  summarise(n = n())
+
+# Nicer names
+df_freqs$species = ifelse(df_freqs$species == "pol", "Polyscias fulva (pol)", "Pseudospondias microcarpa (psd)")
+df_freqs$dist = ifelse(df_freqs$dist == 10, "10 meters", "25 meters")
+
+# Plot the results
+ggplot(df_freqs, aes(x=species, y=n, fill=dist)) + 
+  geom_bar(stat = "identity", width = 0.6, position = position_dodge()) +
+  theme_ipsum() +
+  labs(title = "Occurrences of each species",
+       x = "Species", y = "Occurrences") + 
+  scale_fill_manual("legend", values = c("10 meters" = general_col, "25 meters" = secondary_col)) + 
+  theme(legend.title = element_blank()) +
+  geom_text(aes(label=n), position=position_dodge(width=0.6), vjust=1.5)
 
 ```
 
@@ -133,15 +162,16 @@ Now we generalize this plot.
 # CASE 1: pol, 10
 df_pol_10 = df_clean[df_clean$species == "pol" & df_clean$dist == 10,]
 
-# count how many measuraments there are for each months
+# count how many measuraments there are for each date
 df_temp_1 = df_pol_10 %>%
   count(date)
 
-# count the total number of seeds for each month
+# count the total number of seeds for each date
 df_temp_2 = df_pol_10 %>%
   group_by(date) %>%
   summarise(total_seeds = sum(seeds))
 
+# merge the information to obtain mean seeds available
 df_temp_2$n = df_temp_1$n
 df_temp_2$mean_seeds = df_temp_2$total_seeds / df_temp_2$n
 
@@ -152,15 +182,16 @@ df_pol_10 = df_temp_2
 # CASE 2: pol, 25
 df_pol_25 = df_clean[df_clean$species == "pol" & df_clean$dist == 25,]
 
-# count how many measuraments there are for each months
+# count how many measuraments there are for each date
 df_temp_1 = df_pol_25 %>%
   count(date)
 
-# count the total number of seeds for each month
+# count the total number of seeds for each date
 df_temp_2 = df_pol_25 %>%
   group_by(date) %>%
   summarise(total_seeds = sum(seeds))
 
+# merge the information to obtain mean seeds available
 df_temp_2$n = df_temp_1$n
 df_temp_2$mean_seeds = df_temp_2$total_seeds / df_temp_2$n
 
@@ -171,15 +202,16 @@ df_pol_25 = df_temp_2
 # CASE 3: psd, 10
 df_psd_10 = df_clean[df_clean$species == "psd" & df_clean$dist == 10,]
 
-# count how many measuraments there are for each months
+# count how many measuraments there are for each date
 df_temp_1 = df_psd_10 %>%
   count(date)
 
-# count the total number of seeds for each month
+# count the total number of seeds for each date
 df_temp_2 = df_psd_10 %>%
   group_by(date) %>%
   summarise(total_seeds = sum(seeds))
 
+# merge the information to obtain mean seeds available
 df_temp_2$n = df_temp_1$n
 df_temp_2$mean_seeds = df_temp_2$total_seeds / df_temp_2$n
 
@@ -187,18 +219,19 @@ df_psd_10 = df_temp_2
 
 ###
 
-# CASE 4: pol, 25
+# CASE 4: psd, 25
 df_psd_25 = df_clean[df_clean$species == "psd" & df_clean$dist == 25,]
 
-# count how many measuraments there are for each months
+# count how many measuraments there are for each date
 df_temp_1 = df_psd_25 %>%
   count(date)
 
-# count the total number of seeds for each month
+# count the total number of seeds for each date
 df_temp_2 = df_psd_25 %>%
   group_by(date) %>%
   summarise(total_seeds = sum(seeds))
 
+# merge the information to obtain mean seeds available
 df_temp_2$n = df_temp_1$n
 df_temp_2$mean_seeds = df_temp_2$total_seeds / df_temp_2$n
 
@@ -256,6 +289,9 @@ plot_grid(psd1, psd2, labels = "", ncol = 2)
 
 ```
 
+From these simple graphs we can see that seed species seems to strongly influence the average number of available seeds. Distance to station, on the other hand, seems to be relevant only for the Pseudospondias microcarpa seed.
+
+
 ### Can the *distribution of seeds removed* be fitted with the *binomial distribution*?
 
 We can interpret in 2 ways our data.
@@ -274,7 +310,7 @@ So, we create a new column, `seeds_rem`, which is a boolean column where:
 
 df_clean$seeds_rem = ifelse(df_clean$taken == 0, FALSE, TRUE)
 
-datatable(df_clean)
+datatable(df_clean, rownames = FALSE)
 summary(df_clean$seeds_rem)
 
 ```
@@ -372,24 +408,37 @@ plot_zoom
 
 # Create the column with the probability of seed removal [p_seed_rem]
 
-df_clean$p_seed_rem = df_clean$taken / df_clean$available
+df_clean$p_seed_rem = round(df_clean$taken / df_clean$available, 4)
 
-datatable(df_clean)
+datatable(df_clean, rownames = FALSE)
 
 ```
 
 ---
 
 #### Distance
+Is it significant?
 
 ```{r}
 
-# DISTANCE - is it significant?
-
 model_dist = lm(p_seed_rem~dist, data=df_clean)
+
+# When we use a *qualitative variable* the best way to look at the data is *anova*
+print(anova(model_dist))
+
+```
+
+<p style="color:#F4743B">**`## dist        1  0.146 0.145519  2.7861 0.0954 .`**</p>
+
+
+```{r}
+
+# Other useful info can be obtained through summary
 summary(model_dist)
 
 ```
+
+<p style="color:#F4743B">**`## dist25      0.024352   0.014589   1.669   0.0954 .`**</p>
 
 From the result we can see how the **distance** is not that significant. 
 There is *no substantial difference* between the reference value (10 meters) and 25m.
@@ -397,33 +446,44 @@ There is *no substantial difference* between the reference value (10 meters) and
 ---
 
 #### Species
+Are they significant?
 
 ```{r}
 
-# SPECIES - is it significant?
-
 model_species = lm(p_seed_rem~species, data=df_clean)
+
+print(anova(model_species))
+
+```
+
+<p style="color:#70AE6E">**`## species     1  2.874 2.87353  58.097 5.855e-14 ***`**</p>
+
+
+```{r}
+
 summary(model_species)
 
 ```
 
-The p-value is extremely low, so we can say with a high degree of confidence 
-that the variable **species** is relevant.
+<p style="color:#70AE6E">**`## speciespsd  -0.12632    0.01657  -7.622 5.86e-14 ***`**</p>
 
-This result confirms what we hypothesized in the exploratory analysis.
+
+The p-value is extremely low, so we can say with a high degree of confidence 
+that the variable **species** is relevant. This result confirms what we hypothesized in the exploratory analysis.
 
 We can get more useful information through the use of the *residuals plot*.
 
-```{r}
+```{r fig.align = 'center'}
 
+par(mfrow = c(2,2))
 plot(model_species)
 
 ```
 
-It is not necessary to analyze the graphs in detail to understand that the model 
+It is not necessary to analyze in depth all the graphs to understand that the model 
 is not extremely accurate. 
 
-In the first and in the third graph we immediately notice how the data is not homogeneous.
+In the first and in the third graph we immediately notice how the data is not homogeneously distributed.
 In the second one it is obvious that a normal distribution is not followed. 
 The fourth does not detect the presence of outliers.
 
@@ -431,43 +491,161 @@ The fourth does not detect the presence of outliers.
 
 #### Time
 Is it significant?
-We use the variable tcum.
+We use the variable `tcum`, the cumulative time elapsed.
 
 ```{r}
 
 model_time = lm(p_seed_rem~tcum, data=df_clean)
 summary(model_time)
+
+```
+
+<p style="color:#70AE6E">**`## tcum        -8.581e-04  9.175e-05  -9.352   <2e-16 ***`**</p>
+
+In this case, as in the previous one, we get a very low p-value and we can say that the variable `tcum` is significant.
+
+```{r fig.align = 'center'}
+
+par(mfrow = c(2,2))
 plot(model_time)
 
 ```
 
-The graphs seem to be a little bit nicer, but we can achieve better results. 
+The graphs seem to be a little bit nicer, but we can achieve better results.
+
+---
+
+#### Date
+
+It is reasonable to use the date, but instead of focusing on the single day, 
+better results should be achieved using months. So, we do a little bit of data manipulation and we add the column `month` to our dataframe.
+
+```{r}
+
+df_clean$month = as.factor(months(df_clean$date))
+datatable(df_clean, rownames = FALSE)
+
+```
+
+
+```{r}
+
+model_month = lm(p_seed_rem~month, data=df_clean)
+
+print(anova(model_month))
+
+```
+
+<p style="color:#70AE6E">**`## month       8  5.956 0.74451  15.955 < 2.2e-16 ***`**</p>
+
+According to the Analysis of Variance Table, the variable `month` is significant. 
+Let's investigate further.
+
+```{r}
+
+summary(model_month)
+
+```
+
+Our `ANOVA` results seems to be confirmed. There is a difference between most of the months. We can confirm this even further, using `TukeyHSD`.
+
+```{r}
+
+# TukeyHSD computes the Honest significance differences and works on the output of aov
+TukeyHSD(aov(model_month))
+
+```
+
+As always, we plot the residuals.
+
+```{r fig.align = 'center'}
+
+par(mfrow = c(2,2))
+plot(model_month)
+
+```
+
+---
+
+#### Summary of the models
+We use AIC (Akaike Information Criterion) and BIC (Bayes Information Criterion) to evaluate the models we have created so far.
+
+```{r}
+
+# create a simple df
+col_names = c("model", "AIC", "BIC")
+
+models = c("distance", "species", "cumulative time", "month")
+AIC = c(AIC(model_dist), AIC(model_species), AIC(model_time), AIC(model_month))
+BIC = c(BIC(model_dist), BIC(model_species), BIC(model_time), BIC(model_month))
+
+eval_df = data.frame(models, AIC, BIC)
+
+datatable(eval_df, rownames = FALSE, class = 'cell-border stripe')
+
+```
+
 
 ---
 
 #### Experiments with Models 
 
-```{r}
-
-# Let's try to fit a model with all the variables that make sense
-
-model_1 = lm(p_seed_rem~dist+species+tcum, data=df_clean)
-summary(model_1)
-
-```
-
-As before, the distance is not significant, so we remove it.
+We would like to try to fit a model using all variables 
+(chosen from those that are reasonable to use).
 
 ```{r}
 
-model_2 = lm(p_seed_rem~species+tcum, data=df_clean)
-summary(model_2)
+model_exp_1 = lm(p_seed_rem~dist+species+month+tcum+available, data=df_clean)
+summary(model_exp_1)
 
 ```
 
+<p style="color:#F4743B">**`## dist25          0.0137818  0.0139867   0.985  0.32470`**</p>
+<p style="color:#70AE6E">**`## speciespsd     -0.0957068  0.0200467  -4.774 2.08e-06 ***`**</p>
+<p style="color:#70AE6E">**`## monthJune      -0.1402674  0.0583903  -2.402  0.01648 *`**</p>
+<p style="color:#70AE6E">**`## monthMay       -0.1042007  0.0358869  -2.904  0.00377 **`**</p>
+<p style="color:#F4743B">**`## tcum           -0.0002838  0.0008063  -0.352  0.72499`**</p>
+<p style="color:#F4743B">**`## available       0.0037999  0.0063611   0.597  0.55040`**</p>
+
+Things are a little bit different with this model. What seems to be relavant are
+`species` and `month.`
+
+We remove the distance (`dist`), cumulative time (`tcum`) and `available`.
 
 
+```{r}
 
+model_exp_2 = lm(p_seed_rem~species+month, data=df_clean)
+summary(model_exp_2)
+
+```
+
+Instead of doing it manually, let's try to use `step`. This function takes away one variable from the model each time, choosing the one that decreases most AIC. It stops when taking away variables would only increase AIC.
+
+```{r}
+
+step(model_exp_1) 
+
+```
+
+We obtain the same results as what we did manually (`model_exp_2`).
+
+Let's plot the residuals and evaluate the model.
+
+```{r fig.align = 'center'}
+
+par(mfrow = c(2,2))
+plot(model_exp_2)
+
+```
+
+```{r echo=FALSE}
+
+message("Evaluation of Model with SPECIES+MONTH\nAIC: ", AIC(model_exp_2), "\nBIC: ", BIC(model_exp_2))
+
+```
+
+The residuals are not perfect, but according to AIC and BIC this is the best model so far.
 
 
 

@@ -39,12 +39,13 @@ that you develop your own code.
 
 ---
 
-## Analysis
+## Libraries and setup
 
-### Libraries and setup
+First, we import the libraries needed for the study and set the variables that we will use frequently during the analysis.
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE, echo = T, results = 'hide'}
 
+# LIBRARIES
 library(emdbook)    # dataset library
 library(DT)         # nicer display of dataframes
 library(tidyverse)
@@ -52,20 +53,23 @@ library(ggplot2)    # plotting graphs
 library(hrbrthemes) # theme for plotting
 library(cowplot)    # useful for plots side by side
 
-general_col = "#BAD7F2"
-secondary_col = "#247BA0"
-pol_col = "#F2BAC9"
-psd_col = "#F2E2BA"
-
+# PLOT COLORS
+general_col = "#9792E3"
+secondary_col = "#554DD1"
+pol_col = "#FF7477"
+psd_col = "#9CF6F6"
 significant_col = "#70AE6E"
 not_significant_col = "#F4743B"
 
+# LOCAL LANGUAGE
 Sys.setlocale("LC_ALL", "English") # we want the plots to be in English
 
 ```
 
-### A glance at the dataset
-A little exploratory analysis to understand what kind of dataset we are dealing with.
+---
+
+## The dataset
+Information about the variables used in the dataset is reported, so that we can understand in detail what the data is telling us.
 
 ```{r}
 
@@ -94,13 +98,17 @@ datatable(df, rownames = FALSE)
 
 ```
 
-### Cleaning of the dataset
-We keep only the information about the two species we are interested in: `pol` and `psd`.
+Although there are only two possible values of distance from the forest edge (10 and 25), they still represent a quantity. It is better to convert the column `dist` in numerical form. Furthermore, we can notice some missing values.
 
-Furthermore, as is made explicit by the text of the delivery, the rows with 
-`available=0` do not provide any information, so we remove them (as we do with NAs).
+### Cleaning the dataset
+
+- We convert the column `dist` from factors to numeric
+- We keep only the information about the two species we are interested in: `pol` and `psd`
+- We remove the rows where `available=0` or `NA`, as they do not provide any information
 
 ```{r}
+
+df$dist = as.numeric(as.character(df$dist))
 
 df = df[df$species == "pol" | df$species == "psd",] # keep the two species
 df = df[df$available != 0 & !is.na(df$available),]  # remove rows where available = 0 or NA
@@ -110,7 +118,13 @@ datatable(df_clean, rownames = FALSE)
 
 ```
 
-How many entries for each species and distance?
+---
+
+## Exploratory analysis
+
+Before answering the questions, let's understand what data we're dealing with. A small exploratory analysis of the cleaned dataset follows.
+
+### *How many entries for each species and distance?*
 
 ```{r message=FALSE, warning=FALSE, fig.align = 'center'}
 
@@ -135,7 +149,9 @@ ggplot(df_freqs, aes(x=species, y=n, fill=dist)) +
 
 ```
 
-A simple plot of the data, for one station.
+### *What happens to seeds over time?*
+
+A simple plot of the data, for one specific station, seed type and distance.
 
 ```{r message=FALSE, warning=FALSE, fig.align = 'center'}
 
@@ -289,14 +305,18 @@ plot_grid(psd1, psd2, labels = "", ncol = 2)
 
 ```
 
-From these simple graphs we can see that seed species seems to strongly influence the average number of available seeds. Distance to station, on the other hand, seems to be relevant only for the Pseudospondias microcarpa seed.
+From these simple graphs we can see that seed species seems to strongly influence the average number of available seeds. The distance, on the other hand, seems to be relevant only for the Pseudospondias microcarpa seed.
 
+---
+
+## Binomial Distribution
 
 ### Can the *distribution of seeds removed* be fitted with the *binomial distribution*?
 
+<br>
 We can interpret in 2 ways our data.
 
-**Case A**
+**CASE A**
 
 For each `date` *d*, the `available` seeds can either be predated or not 
 (we do not consider each individual seed).
@@ -355,7 +375,7 @@ plot_zoom
 
 ```
 
-**Case B**
+**CASE B**
 
 We consider each seed individually, so the focus lies on the columns `taken` and `available`.
 
@@ -398,15 +418,16 @@ plot_zoom
 
 ```
 
+---
 
+## Linear models
+#### Does the *probability of seed removal* vary as a function of *distance* from the forest edge (10 or 25 m)? 
+#### Does it depend on *species*, possibly as a function of seed mass? On *time*?
 
-### Linear models
-#### Does the probability of seed removal vary as a function of distance from the forest edge (10 or 25 m)? 
-#### Does it depend on species, possibly as a function of seed mass? On time?
+<br>
+First, we create the column with the data regarding the probability of seed removal (`p_seed_rem`).
 
 ```{r}
-
-# Create the column with the probability of seed removal [p_seed_rem]
 
 df_clean$p_seed_rem = round(df_clean$taken / df_clean$available, 4)
 
@@ -423,25 +444,79 @@ Is it significant?
 
 model_dist = lm(p_seed_rem~dist, data=df_clean)
 
-# When we use a *qualitative variable* the best way to look at the data is *anova*
-print(anova(model_dist))
-
 ```
 
-<p style="color:#F4743B">**`## dist        1  0.146 0.145519  2.7861 0.0954 .`**</p>
-
+Useful info can be obtained through the function `summary`.
 
 ```{r}
 
-# Other useful info can be obtained through summary
 summary(model_dist)
 
 ```
 
-<p style="color:#F4743B">**`## dist25      0.024352   0.014589   1.669   0.0954 .`**</p>
+<p style="color:#F4743B">**`## dist        0.0016234  0.0009726   1.669   0.0954 .`**</p>
 
 From the result we can see how the **distance** is not that significant. 
-There is *no substantial difference* between the reference value (10 meters) and 25m.
+There is *no substantial difference* between the reference value (10 meters) and 25 meters.
+
+As a result, our regression line does not adequately represent the model.
+
+```{r message=FALSE, warning=FALSE, fig.align = 'center'}
+
+# LM on DISTANCE
+
+ggplot(df_clean, aes(x = dist, y = p_seed_rem, color = species)) + 
+  geom_point(
+    alpha=0.5,
+    size=4,
+    stroke = 1
+  ) +
+  geom_smooth(method = "lm", formula= y~x, col = secondary_col) + 
+  xlim(8,27) +
+  theme_ipsum() + 
+  scale_color_manual(values=c(pol_col, psd_col)) +
+  labs(title = "LM based on Distance", 
+       x = "Distance",
+       y = "Probability of seed removal") + 
+  theme(legend.title = element_blank())
+
+```
+
+What we can try to do is split the two datasets by species. From the plots obtained in the exploratory analysis it appeared that the distance was more significant for the `psd` species.
+
+```{r}
+
+# We create the sub-datasets
+df_pol = df_clean[df_clean$species == "pol",]
+df_psd = df_clean[df_clean$species == "psd",]
+
+# We create two distinct linear models
+model_dist_pol = lm(p_seed_rem~dist, data=df_pol)
+model_dist_psd = lm(p_seed_rem~dist, data=df_psd)
+
+```
+
+Let's see the results.
+
+```{r}
+
+summary(model_dist_pol)
+
+```
+
+<p style="color:#F4743B">**`## dist        0.002975   0.002924   1.017   0.3100`**</p>
+
+Still not significant.
+
+```{r}
+
+summary(model_dist_psd)
+
+```
+
+<p style="color:#F4743B">**`## dist        0.0004644  0.0008393   0.553   0.5802`**</p>
+
+Still not significant.
 
 ---
 
@@ -452,9 +527,16 @@ Are they significant?
 
 model_species = lm(p_seed_rem~species, data=df_clean)
 
+```
+
+When we use a *qualitative variable* the best way to look at the data is using `anova`.
+
+```{r}
+
 print(anova(model_species))
 
 ```
+
 
 <p style="color:#70AE6E">**`## species     1  2.874 2.87353  58.097 5.855e-14 ***`**</p>
 
@@ -504,6 +586,28 @@ summary(model_time)
 
 In this case, as in the previous one, we get a very low p-value and we can say that the variable `tcum` is significant.
 
+Since we are working with a qualitative variable, it's easy to plot our regression line.
+
+```{r message=FALSE, warning=FALSE, fig.align = 'center'}
+
+# LM on CUMULATIVE TIME
+
+ggplot(df_clean, aes(x = tcum, y = p_seed_rem, color = species)) + 
+  geom_point(
+    alpha=0.8,
+    size=4,
+    stroke = 1
+  ) +
+  geom_smooth(method = "lm", formula= y~x, col = secondary_col) + 
+  theme_ipsum() + 
+  scale_color_manual(values=c(pol_col, psd_col)) +
+  labs(title = "LM based on Cumulative Time", 
+       x = "Cumulative Time",
+       y = "Probability of seed removal") + 
+  theme(legend.title = element_blank())
+
+```
+
 ```{r fig.align = 'center'}
 
 par(mfrow = c(2,2))
@@ -547,11 +651,12 @@ summary(model_month)
 
 ```
 
-Our `ANOVA` results seems to be confirmed. There is a difference between most of the months. We can confirm this even further, using `TukeyHSD`.
+Our `ANOVA` results seems to be confirmed. We can see that there are significant differences between most of the months and the month taken as a reference (April). The only one that has a high p-value is March, and that may make sense since March and April are consecutive months. 
+
+We can confirm this even further, using `TukeyHSD`, a function that computes the Honest significance differences and works on the output of `aov`.
 
 ```{r}
 
-# TukeyHSD computes the Honest significance differences and works on the output of aov
 TukeyHSD(aov(model_month))
 
 ```
@@ -567,8 +672,9 @@ plot(model_month)
 
 ---
 
-#### Summary of the models
-We use AIC (Akaike Information Criterion) and BIC (Bayes Information Criterion) to evaluate the models we have created so far.
+### Evaluation of the models
+
+We use **AIC** (Akaike Information Criterion) and **BIC** (Bayes Information Criterion) to evaluate the models we have created so far.
 
 ```{r}
 
@@ -585,13 +691,13 @@ datatable(eval_df, rownames = FALSE, class = 'cell-border stripe')
 
 ```
 
+We can see how the last two models are the ones with better results, according to the metrics used.
 
 ---
 
-#### Experiments with Models 
+### Experiments with Models 
 
-We would like to try to fit a model using all variables 
-(chosen from those that are reasonable to use).
+Now, we would like to fit a more complex model, using all the variables that are reasonable to use.
 
 ```{r}
 
@@ -600,17 +706,25 @@ summary(model_exp_1)
 
 ```
 
-<p style="color:#F4743B">**`## dist25          0.0137818  0.0139867   0.985  0.32470`**</p>
-<p style="color:#70AE6E">**`## speciespsd     -0.0957068  0.0200467  -4.774 2.08e-06 ***`**</p>
-<p style="color:#70AE6E">**`## monthJune      -0.1402674  0.0583903  -2.402  0.01648 *`**</p>
-<p style="color:#70AE6E">**`## monthMay       -0.1042007  0.0358869  -2.904  0.00377 **`**</p>
-<p style="color:#F4743B">**`## tcum           -0.0002838  0.0008063  -0.352  0.72499`**</p>
-<p style="color:#F4743B">**`## available       0.0037999  0.0063611   0.597  0.55040`**</p>
+<p style="color:#F4743B">**`## dist            0.0009188  0.0009324   0.985  0.32470`**</p>
+<p style="color:#70AE6E">**`## speciespsd     -0.0957070  0.0200467  -4.774 2.08e-06 ***`**</p>
+<p style="color:#70AE6E">**`## monthJune      -0.1402668  0.0583902  -2.402  0.01648 *`**</p>
+<p style="color:#70AE6E">**`## monthMay       -0.1042009  0.0358869  -2.904  0.00377 **`**</p>
+<p style="color:#F4743B">**`## tcum           -0.0002838  0.0008063  -0.352  0.72498`**</p>
+<p style="color:#F4743B">**`## available       0.0038001  0.0063611   0.597  0.55039`**</p>
 
 Things are a little bit different with this model. What seems to be relavant are
 `species` and `month.`
 
-We remove the distance (`dist`), cumulative time (`tcum`) and `available`.
+<br>
+
+#### Tweaking the model manually
+
+We remove:
+
+- the distance (`dist`)
+- cumulative time (`tcum`)
+- seeds availability (`available`)
 
 
 ```{r}
@@ -619,6 +733,10 @@ model_exp_2 = lm(p_seed_rem~species+month, data=df_clean)
 summary(model_exp_2)
 
 ```
+
+<br>
+
+#### Tweaking the model with STEP
 
 Instead of doing it manually, let's try to use `step`. This function takes away one variable from the model each time, choosing the one that decreases most AIC. It stops when taking away variables would only increase AIC.
 
@@ -629,6 +747,10 @@ step(model_exp_1)
 ```
 
 We obtain the same results as what we did manually (`model_exp_2`).
+
+<br>
+
+#### Residuals and evaluation
 
 Let's plot the residuals and evaluate the model.
 
@@ -641,32 +763,22 @@ plot(model_exp_2)
 
 ```{r echo=FALSE}
 
-message("Evaluation of Model with SPECIES+MONTH\nAIC: ", AIC(model_exp_2), "\nBIC: ", BIC(model_exp_2))
+# create a simple df
+col_names = c("model", "AIC", "BIC")
+
+models = c("distance", "species", "cumulative time", "month", "complex v2")
+AIC = c(AIC(model_dist), AIC(model_species), AIC(model_time), AIC(model_month), AIC(model_exp_2))
+BIC = c(BIC(model_dist), BIC(model_species), BIC(model_time), BIC(model_month), BIC(model_exp_2))
+
+eval_df = data.frame(models, AIC, BIC)
+
+datatable(eval_df, rownames = FALSE, class = 'cell-border stripe')
 
 ```
 
 The residuals are not perfect, but according to AIC and BIC this is the best model so far.
 
+---
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+<br><br><br><br><br><br><br><br><br><br><br>
+<br><br><br><br><br><br><br><br><br><br><br>

@@ -1,51 +1,4 @@
----
-title: "Analysis on SeedPred dataset"
-output:
-  html_document:
-    df_print: paged
----
-
-<style>
-  body {text-align: justify}
-</style>
-
-### Passabì Daniele
-
-#### Matricola 221229
-
----
-
-## Assignment
-
-Analyse the dataset *SeedPred* contained in the package `emdbook`, data on seed
-predation from Duncan and Duncan (2000) that quantify how many times seeds
-of two different species disappeared (presumably taken by seed predators) from
-observation stations in Kibale National Park, Uganda. The two species 
-(actually the smallest- and largest-seeded species of a set of eight species) are
-*Polyscias fulva* (`pol`: seed mass < 0.01 g) and *Pseudospondias microcarpa* (`psd`:
-seed mass 50 g).
-
-The main questions to address are: does the probability of seed removal vary
-as a function of distance from the forest edge (10 or 25 m)? Does it depend on
-species, possibly as a function of seed mass? On time?
-
-It must be remembered that the numbers of seeds present in each location is
-small: 5 initially, then fewer as some are predated. The variable `available` 
-indicates how many seeds were available at each time and station to be predated;
-of course, the observations with `available=0` do not give any information.
-Hence, the first question to address is the distribution of seeds removed; can it
-be fitted with the binomial distribution?
-
-The book by Bolker gives many ideas about the analysis, but of course I expect
-that you develop your own code.
-
----
-
-## Libraries and setup
-
-First, we import the libraries needed for the study and set the variables that we will use frequently during the analysis.
-
-```{r message=FALSE, warning=FALSE, echo = T, results = 'hide'}
+## ----message=FALSE, warning=FALSE, echo = T, results = 'hide'-----------------
 
 # LIBRARIES
 library(emdbook)    # dataset library
@@ -66,31 +19,15 @@ not_significant_col = "#F4743B"
 # LOCAL LANGUAGE
 Sys.setlocale("LC_ALL", "English") # we want the plots to be in English
 
-```
 
----
 
-## The dataset
-Information about the variables used in the dataset is reported, so that we can understand in detail what the data is telling us.
-
-```{r}
+## -----------------------------------------------------------------------------
 
 df = SeedPred
 
-```
 
 
-- `station` a factor specifying the station number
-- `species` a factor with levels `abz`, `cd`, `cor`, `dio`, `mmu`, `pol`, `psd`, `uva`
-- `date` sample date
-- `seeds` number of seeds present
-- `tcum` cumulative time elapsed
-- `tint` time since last sample
-- `taken` seeds removed since last sample
-- `dist` distance from forest edge (m)
-- `available` how many seeds were available at each time and station to be predated
-
-```{r}
+## -----------------------------------------------------------------------------
 
 # what are the types of the columns?
 glimpse(df)
@@ -98,17 +35,9 @@ glimpse(df)
 # exploration of initial dataframe
 datatable(df, rownames = FALSE)
 
-```
 
-Although there are only two possible values of distance from the forest edge (10 and 25), they still represent a quantity. It is better to convert the column `dist` in numerical form. Furthermore, we can notice some missing values.
 
-### Cleaning the dataset
-
-- We convert the column `dist` from factors to numeric
-- We keep only the information about the two species we are interested in: `pol` and `psd`
-- We remove the rows where `available=0` or `NA`, as they do not provide any information
-
-```{r}
+## -----------------------------------------------------------------------------
 
 df$dist = as.numeric(as.character(df$dist))
 
@@ -118,17 +47,9 @@ df_clean = df[!is.na(df$seeds),]                    # remove rows where seeds is
 
 datatable(df_clean, rownames = FALSE)
 
-```
 
----
 
-## Exploratory analysis
-
-Before answering the questions, let's understand what data we're dealing with. A small exploratory analysis of the cleaned dataset follows.
-
-### *How many entries for each species and distances?*
-
-```{r message=FALSE, warning=FALSE, fig.align = 'center'}
+## ----message=FALSE, warning=FALSE, fig.align = 'center'-----------------------
 
 # Find the frequencies of the species
 df_freqs = df_clean %>%  
@@ -149,13 +70,9 @@ ggplot(df_freqs, aes(x=species, y=n, fill=dist)) +
   theme(legend.title = element_blank()) +
   geom_text(aes(label=n), position=position_dodge(width=0.6), vjust=1.5)
 
-```
 
-### *What happens to seeds over time?*
 
-A simple plot of the data, for one specific station, seed type and distance.
-
-```{r message=FALSE, warning=FALSE, fig.align = 'center'}
+## ----message=FALSE, warning=FALSE, fig.align = 'center'-----------------------
 
 example_station = 19
 example_distance = 25
@@ -171,12 +88,9 @@ df_stat_65 %>%
          subtitle = "Station: 19\nSpecies: Polyscias fulva (pol)\nDistance: 25m",
          x = "Date", y = "Seeds")
 
-```
-It is possible to notice from the chart that the seeds initially available are 5. Every 7 days the number of available seeds is checked and updated. This is done for a certain period of time or until there are no more seeds available, as in the example shown.
 
-The graph shown does not provide us with information about the overall trend in the data. Let's try to generalize it.
 
-```{r message=FALSE, warning=FALSE}
+## ----message=FALSE, warning=FALSE---------------------------------------------
 
 # CASE 1: pol, 10
 df_pol_10 = df_clean[df_clean$species == "pol" & df_clean$dist == 10,]
@@ -256,10 +170,9 @@ df_temp_2$mean_seeds = df_temp_2$total_seeds / df_temp_2$n
 
 df_psd_25 = df_temp_2
 
-```
 
 
-```{r message=FALSE, warning=FALSE, fig.align = 'center'}
+## ----message=FALSE, warning=FALSE, fig.align = 'center'-----------------------
 
 # Now we plot
 
@@ -306,41 +219,18 @@ psd2 = df_psd_25 %>%
 plot_grid(pol1, pol2, labels = "", ncol = 2)
 plot_grid(psd1, psd2, labels = "", ncol = 2)
 
-```
 
-From these simple graphs we can see that seed species seems to strongly influence the average number of available seeds. The distance, on the other hand, seems to be relevant only for the Pseudospondias microcarpa seed.
 
----
-
-## Binomial Distribution
-
-### Can the *distribution of seeds removed* be fitted with the *binomial distribution*?
-
-<br>
-We can interpret in 2 ways our data.
-
-**CASE A**
-
-For each `date` *d*, the `available` seeds can either be predated or not 
-(we do not consider each individual seed).
-
-We create a new column, `seeds_rem`, based on `taken` column. `seeds_rem` is a boolean column where:
-
-- `TRUE` indicates that any number of seeds were predated
-- `FALSE` indicates that no seeds were predated
-
-```{r}
+## -----------------------------------------------------------------------------
 
 df_clean$seeds_rem = ifelse(df_clean$taken == 0, FALSE, TRUE)
 
 datatable(df_clean, rownames = FALSE)
 summary(df_clean$seeds_rem)
 
-```
 
-By simply using the `summary` function we can obtain all the information we need for the binomial distribution.
 
-```{r}
+## -----------------------------------------------------------------------------
 
 successes = 97
 n = 890 + 97
@@ -348,9 +238,9 @@ emp_prob = successes/n
 
 message("Number of trials: ", n, "\nProbability of seeds removal: ", round(emp_prob,4))
 
-```
 
-```{r message=FALSE, warning=FALSE, fig.align = 'center'}
+
+## ----message=FALSE, warning=FALSE, fig.align = 'center'-----------------------
 
 x1 = 0:n
 df = data.frame(x = x1, y = dbinom(x1, n, emp_prob))
@@ -377,15 +267,9 @@ plot_zoom = ggplot(df, aes(x = x, y = y)) +
 plot_full
 plot_zoom
 
-```
 
-**CASE B**
 
-We consider each seed individually. The focus lies on the columns `taken` and `available`.
-
-As done for the last case, we obtain the necessary information for the binomial distribution.
-
-```{r}
+## -----------------------------------------------------------------------------
 
 successes = sum(df_clean$taken)
 n = sum(df_clean$available)
@@ -393,9 +277,9 @@ emp_prob = successes/n
 
 message("Number of trials: ", n, "\nNumber of successes: ", successes, "\nProbability of seeds removal: ", round(emp_prob,4))
 
-```
 
-```{r message=FALSE, warning=FALSE, fig.align = 'center'}
+
+## ----message=FALSE, warning=FALSE, fig.align = 'center'-----------------------
 
 x1 = 0:n
 df = data.frame(x = x1, y = dbinom(x1, n, emp_prob))
@@ -422,53 +306,29 @@ plot_zoom = ggplot(df, aes(x = x, y = y)) +
 plot_full
 plot_zoom
 
-```
 
----
 
-## Linear models
-#### Does the *probability of seed removal* vary as a function of *distance* from the forest edge (10 or 25 m)? 
-#### Does it depend on *species*, possibly as a function of seed mass? On *time*?
-
-<br>
-First, we create the column with the data regarding the probability of seed removal (`p_seed_rem`).
-
-```{r}
+## -----------------------------------------------------------------------------
 
 df_clean$p_seed_rem = round(df_clean$taken / df_clean$available, 4)
 
 datatable(df_clean, rownames = FALSE)
 
-```
 
----
 
-#### Distance
-Is it significant?
-
-First, let's create the model.
-
-```{r}
+## -----------------------------------------------------------------------------
 
 model_dist = lm(p_seed_rem~dist, data=df_clean)
 
-```
 
-Useful info can be obtained through the function `summary`.
 
-```{r}
+## -----------------------------------------------------------------------------
 
 summary(model_dist)
 
-```
 
-<p style="color:#F4743B">**`## dist        0.0016234  0.0009726   1.669   0.0954 .`**</p>
 
-From the result we can see how the `distance` is not that significant.
-
-As a result, our regression line does not adequately represent the model.
-
-```{r message=FALSE, warning=FALSE, fig.align = 'center'}
+## ----message=FALSE, warning=FALSE, fig.align = 'center'-----------------------
 
 # LM on DISTANCE
 
@@ -487,11 +347,9 @@ ggplot(df_clean, aes(x = dist, y = p_seed_rem, color = species)) +
        y = "Probability of seed removal") + 
   theme(legend.title = element_blank())
 
-```
 
-What we can try to do is split the two datasets by `species`. From the plots obtained in the exploratory analysis it appeared that the distance was more significant for the *psd* species.
 
-```{r}
+## -----------------------------------------------------------------------------
 
 # We create the sub-datasets
 df_pol = df_clean[df_clean$species == "pol",]
@@ -501,101 +359,53 @@ df_psd = df_clean[df_clean$species == "psd",]
 model_dist_pol = lm(p_seed_rem~dist, data=df_pol)
 model_dist_psd = lm(p_seed_rem~dist, data=df_psd)
 
-```
 
-Let's see the results.
 
-```{r}
+## -----------------------------------------------------------------------------
 
 summary(model_dist_pol)
 
-```
 
-<p style="color:#F4743B">**`## dist        0.002975   0.002924   1.017   0.3100`**</p>
 
-```{r}
+## -----------------------------------------------------------------------------
 
 summary(model_dist_psd)
 
-```
 
-<p style="color:#F4743B">**`## dist        0.0004644  0.0008393   0.553   0.5802`**</p>
 
-Despite the division of the dataset, we did not achieve improvement, quite the contrary.
-
----
-
-#### Species
-Are they significant?
-
-As before, we create the model.
-
-```{r}
+## -----------------------------------------------------------------------------
 
 model_species = lm(p_seed_rem~species, data=df_clean)
 
-```
 
-When we use a *qualitative variable* the best way to look at the data is using `anova`.
 
-```{r}
+## -----------------------------------------------------------------------------
 
 print(anova(model_species))
 
-```
 
 
-<p style="color:#70AE6E">**`## species     1  2.874 2.87353  58.097 5.855e-14 ***`**</p>
-
-
-```{r}
+## -----------------------------------------------------------------------------
 
 summary(model_species)
 
-```
-
-<p style="color:#70AE6E">**`## speciespsd  -0.12632    0.01657  -7.622 5.86e-14 ***`**</p>
 
 
-The p-value is extremely low, so we can say with a high degree of confidence 
-that the variable `species` is relevant. This result confirms what we hypothesized in the exploratory analysis.
-
-We can get more useful information through the use of the *residuals plot*.
-
-```{r fig.align = 'center'}
+## ----fig.align = 'center'-----------------------------------------------------
 
 par(mfrow = c(2,2))
 plot(model_species)
 
-```
 
-It is not necessary to analyze in depth all the graphs to understand that the model 
-is not extremely accurate. 
 
-In the first and in the third graph we immediately notice how the data is not homogeneously distributed.
-In the second one it is obvious that a normal distribution is not followed. 
-The fourth does not detect the presence of outliers.
-
----
-
-#### Time
-Is it significant?
-We use the variable `tcum`, the cumulative time elapsed (expressed in days).
-
-```{r}
+## -----------------------------------------------------------------------------
 
 model_time = lm(p_seed_rem~tcum, data=df_clean)
 summary(model_time)
 
-```
 
-<p style="color:#70AE6E">**`## tcum        -8.581e-04  9.175e-05  -9.352   <2e-16 ***`**</p>
 
-In this case, as in the previous one, we get a very low p-value and we can say that the variable `tcum` is significant.
-
-Since we are working with a quantitative variable, it's easy to plot our regression line.
-
-```{r message=FALSE, warning=FALSE, fig.align = 'center'}
+## ----message=FALSE, warning=FALSE, fig.align = 'center'-----------------------
 
 # LM on CUMULATIVE TIME
 
@@ -613,33 +423,27 @@ ggplot(df_clean, aes(x = tcum, y = p_seed_rem, color = species)) +
        y = "Probability of seed removal") + 
   theme(legend.title = element_blank())
 
-```
 
-It is easy to see how difficult it is for a straight line to follow the trend of the data. Let's try a **polynomial model**.
 
-```{r message=FALSE, warning=FALSE}
+## ----message=FALSE, warning=FALSE---------------------------------------------
 
 # Poly of grade 2
 
 model_time_poly2 = lm(p_seed_rem~poly(tcum,2), data=df_clean)
 summary(model_time_poly2)
 
-```
 
-```{r}
+
+## -----------------------------------------------------------------------------
 
 # Poly of grade 3
 
 model_time_poly3 = lm(p_seed_rem~poly(tcum,3), data=df_clean)
 summary(model_time_poly3)
 
-```
 
-We can see how there are improvements over the linear model (higher R-squared values). Using a grade 2 or 3, however, leads to very similar results. We don't use even higher grades since they bring us no benefit.
 
-The plots of the two models follow.
-
-```{r message=FALSE, warning=FALSE}
+## ----message=FALSE, warning=FALSE---------------------------------------------
 
 # Plots of the polynomial models
 
@@ -677,80 +481,50 @@ ggplot(df_clean, aes(x = tcum, y = p_seed_rem, color = species)) +
        y = "Probability of seed removal") + 
   theme(legend.title = element_blank())
 
-```
 
-Plots of the residuals of the third degree polynomial model are shown below.
 
-```{r fig.align = 'center'}
+## ----fig.align = 'center'-----------------------------------------------------
 
 par(mfrow = c(2,2))
 plot(model_time_poly3)
 
-```
 
-The graphs seem to be a little bit nicer, even if the data still does not follow a normal distribution.
 
----
-
-#### Date
-
-It is reasonable to use the date, but instead of focusing on the single day, 
-better results should be achieved using months. So, we do a little bit of data manipulation and we add the column `month` to our dataframe.
-
-```{r}
+## -----------------------------------------------------------------------------
 
 df_clean$month = as.factor(months(df_clean$date))
 datatable(df_clean, rownames = FALSE)
 
-```
 
-The `month` variable is *qualitative*, so we use `anova`.
 
-```{r}
+## -----------------------------------------------------------------------------
 
 model_month = lm(p_seed_rem~month, data=df_clean)
 
 print(anova(model_month))
 
-```
 
-<p style="color:#70AE6E">**`## month       8  5.956 0.74451  15.955 < 2.2e-16 ***`**</p>
 
-According to the Analysis of Variance Table, the variable is significant. 
-Let's investigate further.
-
-```{r}
+## -----------------------------------------------------------------------------
 
 summary(model_month)
 
-```
 
-Our `ANOVA` results seems to be confirmed. We can see that there are significant differences between most of the months and the month taken as a reference (April). The only month with an a high p-value is March, which seems to make sense since March and April are consecutive months. 
 
-We can get even more information using `TukeyHSD`, a function that computes the *Honest significance differences* and works on the output of `aov`.
-
-```{r}
+## -----------------------------------------------------------------------------
 
 TukeyHSD(aov(model_month))
 
-```
 
-As always, we plot the residuals.
 
-```{r fig.align = 'center'}
+## ----fig.align = 'center'-----------------------------------------------------
 
 par(mfrow = c(2,2))
 plot(model_month)
 
-```
 
----
 
-### Evaluation of the models
-
-We use **AIC** (Akaike Information Criterion) and **BIC** (Bayes Information Criterion) to evaluate the models we have created so far.
-
-```{r}
+## -----------------------------------------------------------------------------
 
 # create a simple df
 col_names = c("model", "AIC", "BIC")
@@ -763,107 +537,50 @@ eval_df = data.frame(models, AIC, BIC)
 
 datatable(eval_df, rownames = FALSE, class = 'cell-border stripe')
 
-```
 
-We can see how the last polynomial models are the ones with better results, according to the metrics used.
 
----
-
-### Experiments with Models 
-
-Now, we would like to fit a **full model**, using all the variables that are reasonable to use.
-
-```{r}
+## -----------------------------------------------------------------------------
 
 model_exp_1 = lm(p_seed_rem~dist+species+month+tcum+available, data=df_clean)
 summary(model_exp_1)
 
-```
 
-<p style="color:#F4743B">**`## dist            0.0009188  0.0009324   0.985  0.32470`**</p>
-<p style="color:#70AE6E">**`## speciespsd     -0.0957070  0.0200467  -4.774 2.08e-06 ***`**</p>
-<p style="color:#70AE6E">**`## monthJune      -0.1402668  0.0583902  -2.402  0.01648 *`**</p>
-<p style="color:#70AE6E">**`## monthMay       -0.1042009  0.0358869  -2.904  0.00377 **`**</p>
-<p style="color:#F4743B">**`## tcum           -0.0002838  0.0008063  -0.352  0.72498`**</p>
-<p style="color:#F4743B">**`## available       0.0038001  0.0063611   0.597  0.55039`**</p>
 
-Things are a little bit different with this model. What seems to be relavant are
-`species` and `month.`
-
-<br>
-
-#### Tweaking the model manually
-
-We remove:
-
-- the distance (`dist`)
-- cumulative time (`tcum`)
-- seeds availability (`available`)
-
-and create another model.
-
-```{r}
+## -----------------------------------------------------------------------------
 
 model_exp_2 = lm(p_seed_rem~species+month, data=df_clean)
 summary(model_exp_2)
 
-```
 
-<br>
 
-#### Tweaking the model with STEP
-
-Instead of doing it manually, let's try to use `step`. This function takes away one variable from the model each time, choosing the one that decreases most AIC. It stops when taking away variables would only increase AIC.
-
-```{r}
+## -----------------------------------------------------------------------------
 
 step(model_exp_1) 
 
-```
 
-We obtain the same results as what we did manually (`model_exp_2`).
 
-<br>
-
-Let's plot the residuals.
-
-```{r fig.align = 'center'}
+## ----fig.align = 'center'-----------------------------------------------------
 
 par(mfrow = c(2,2))
 plot(model_exp_2)
 
-```
 
-<br> 
 
-#### One last model
-
-Finally, let's try to create one last model, using `species` and `cumulative time` instead of `months`. This way we can use a **polynomial model**.
-
-```{r}
+## -----------------------------------------------------------------------------
 
 model_exp_3 = lm(p_seed_rem~species+poly(tcum,3), data=df_clean)
 summary(model_exp_3)
 
-```
 
-We plot the residuals.
 
-```{r fig.align = 'center'}
+## ----fig.align = 'center'-----------------------------------------------------
 
 par(mfrow = c(2,2))
 plot(model_exp_3)
 
-```
 
-The plot of the residuals and the value of *R squared* are very similar. 
-We can evaluate the models through AIC and BIC to understand which model is preferable.
 
-<br>
-
-#### Evaluation of the models
-
-```{r}
+## -----------------------------------------------------------------------------
 
 # create a simple df
 col_names = c("model", "AIC", "BIC")
@@ -875,20 +592,3 @@ BIC = c(BIC(model_dist), BIC(model_species), BIC(model_time), BIC(model_time_pol
 eval_df = data.frame(models, AIC, BIC)
 
 datatable(eval_df, rownames = FALSE, class = 'cell-border stripe')
-
-```
-
-According to the metrics, the best model is one that uses `species` and `cumulative time` (with a polynomial). This is an example of how the `step` function is not perfect, and better results can be obtained through more advanced analysis.
-
----
-
-<br><br><br><br><br><br><br><br><br><br><br>
-<br><br><br><br><br><br><br><br><br><br><br>
-
-```{r include=FALSE}
-
-# Convert RMD in R Script
-knitr::purl("analysis.Rmd")
-
-```
-
